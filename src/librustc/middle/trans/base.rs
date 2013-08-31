@@ -131,20 +131,6 @@ pub fn push_ctxt(s: &'static str) -> _InsnCtxt {
     _InsnCtxt { _x: () }
 }
 
-fn fcx_has_nonzero_span(fcx: &FunctionContext) -> bool {
-    match fcx.span {
-        None => false,
-        Some(span) => *span.lo != 0 || *span.hi != 0
-    }
-}
-
-fn span_is_empty(opt_span: &Option<span>) -> bool {
-    match *opt_span {
-        None => true,
-        Some(span) => *span.lo == 0 && *span.hi == 0
-    }
-}
-
 struct StatRecorder<'self> {
     ccx: @mut CrateContext,
     name: &'self str,
@@ -1131,8 +1117,7 @@ pub fn trans_stmt(cx: @mut Block, s: &ast::stmt) -> @mut Block {
             match d.node {
                 ast::decl_local(ref local) => {
                     bcx = init_local(bcx, *local);
-                    if cx.sess().opts.extra_debuginfo
-                        && fcx_has_nonzero_span(bcx.fcx) {
+                    if cx.sess().opts.extra_debuginfo {
                         debuginfo::create_local_var_metadata(bcx, *local);
                     }
                 }
@@ -1632,12 +1617,7 @@ pub fn new_fn_ctxt_w_id(ccx: @mut CrateContext,
         }
     };
     let uses_outptr = type_of::return_uses_outptr(ccx.tcx, substd_output_type);
-
-    let debug_context = if id != -1 && ccx.sess.opts.debuginfo && !span_is_empty(&sp) {
-        Some(debuginfo::create_function_debug_context(ccx, id, param_substs, llfndecl))
-    } else {
-        None
-    };
+    let debug_context = debuginfo::create_function_debug_context(ccx, id, param_substs, llfndecl);
 
     let fcx = @mut FunctionContext {
           llfn: llfndecl,
@@ -1783,7 +1763,7 @@ pub fn copy_args_to_allocas(fcx: @mut FunctionContext,
             fcx.llself = Some(ValSelfData {v: self_val, ..slf});
             add_clean(bcx, self_val, slf.t);
 
-            if fcx.ccx.sess.opts.extra_debuginfo && fcx_has_nonzero_span(fcx) {
+            if fcx.ccx.sess.opts.extra_debuginfo {
                 debuginfo::create_self_argument_metadata(bcx, slf.t, self_val);
             }
         }
@@ -1810,7 +1790,7 @@ pub fn copy_args_to_allocas(fcx: @mut FunctionContext,
         };
         bcx = _match::store_arg(bcx, args[arg_n].pat, llarg);
 
-        if fcx.ccx.sess.opts.extra_debuginfo && fcx_has_nonzero_span(fcx) {
+        if fcx.ccx.sess.opts.extra_debuginfo {
             debuginfo::create_argument_metadata(bcx, &args[arg_n]);
         }
     }
